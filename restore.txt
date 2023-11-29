@@ -1,0 +1,54 @@
+#!/bin/bash
+
+function restore(){
+#put file name into variable
+filename=$1
+
+#check if filename already exist in original location
+if [[ -e $filepath ]] ;
+  then
+        read -p "Do you want to overwrite? y/n " YorN
+        if [[ ! $YorN =~ ^[yY] ]]
+          then
+                return 0
+        fi
+fi
+
+#move file to original location
+mv $HOME/recyclebin/$filename $filepath
+#remove info from .restore.info
+grep -v "$filename" $HOME/.restore.info > tmpFile
+mv tmpFile $HOME/.restore.info
+
+}
+
+#main
+
+#check if no input
+if [ "$#" -eq 0 ]
+  then
+        echo "restore: missing operand" >&2
+        exit 1
+fi
+
+#check if file does not exist
+if [ ! -e $HOME/recyclebin/$filename ]
+  then
+        echo "restore: cannot restore $filename: No such file" >&2
+        exit 2
+fi
+
+#get original file path
+filepath=$(grep $1 $HOME/.restore.info | cut -d ':' -f 2)
+
+#get directory path
+dname=$(dirname "$filepath")
+
+#check if directory exist
+if [ ! -d "$dname" ]
+  then
+        mkdir -p $dname
+fi
+
+restore $1
+                              

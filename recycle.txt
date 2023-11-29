@@ -1,0 +1,146 @@
+#!/bin/bash
+
+function recycle(){
+
+#put name of file into variable
+filename=$1
+
+#check if file does not exist
+if [ ! -e $filename ]
+  then
+        echo "recycle: cannot remove $filename: No such file" >&2
+        return 2
+fi
+
+#check if it is a directory
+if [ -d $filename ]
+  then
+        echo "recycle: cannot remove '$filename': Is a directory" >&2
+        return 3
+fi
+
+#get original filepath of file
+filepath=$(readlink -m $filename)
+
+#check if recycle script is being recycled
+if [ "$filepath" = "$HOME/project/recycle" ]
+  then
+        echo "Attempting to delete recycle - operation aborted" >&2
+        return 4
+fi
+
+#check if restore script is being recycled
+if [ "$filepath" = "$HOME/project/restore" ]
+  then
+        echo "Attempting to delete restore - operation aborted" >&2
+        return 5
+fi
+
+#check if -i option is used
+if [[ $ioption = 'true' ]]
+  then
+        read -p "Do you want to recycle "$var"? y/n " reply
+        if [[ ! $reply =~ ^[yY] ]]
+          then
+                continue
+        fi
+fi
+
+# make recycle bin directory if it doesn't exist
+if [ ! -e $HOME/recyclebin ]
+  then
+        mkdir $HOME/recyclebin
+fi
+
+#get the inode of the file and put into variable
+inode=$(ls -i $filename | cut -d ' ' -f 1)
+
+#move the file to recycle bin and rename to "filename_inode"
+bname=$(basename $filename)
+mv $filename $HOME/'recyclebin/'$bname'_'$inode
+
+#create hidden restore info file if it doesn't exist
+if [ ! -e "$HOME/.restore.info" ]
+  then
+        touch $HOME/.restore.info
+fi
+
+#put original file info into .restore.info
+echo $filename'_'$inode:$filepath >> $HOME/.restore.info
+
+#check if -v option is used
+if [[ $voption = 'true' ]]
+  then
+        echo "recycled '$var'"
+fi
+
+}
+
+
+#  use: recycle_dir target_directory
+function recycle_dir() {
+
+        #  Recycle everything except the directories
+#        echo "Files:"
+        for eachfile in $(find "${1}" -type f)
+        do
+                recycle ${eachfile}
+        done
+
+        #  Remove the directories
+        rm -r "${1}"
+}
+
+#main
+
+#check if no input
+if [ "$#" -eq 0 ]
+  then
+        echo "recycle: missing operand" >&2
+        exit 1
+fi
+
+ioption=false
+voption=false
+roption=false
+
+#get options
+while getopts :ivr opt
+do
+        case ${opt} in
+        'i')  ioption=true
+              ;;
+
+        'v')  voption=true
+              ;;
+
+        'r')  roption=true
+              ;;
+
+        *)    echo "recycle: error invalid opt" >&2
+              exit 6
+              ;;
+
+        esac
+done
+
+#loop through the arguements
+for var in "$@"
+do
+        #check if input is an option
+        if [[ "$var" =~ ^['-'] ]]
+          then
+                continue
+        fi
+
+        #check if -r option
+        if [[ $roption = 'true' ]]
+          then
+                recycle_dir "$var"
+        else
+                #run recycle
+                recycle "$var"
+        fi
+done
+
+
